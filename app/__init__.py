@@ -3,12 +3,15 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
+from flask_cors import CORS  # CORSをインポート
 
 db = SQLAlchemy()
 bcrypt = Bcrypt()
 
 def create_app():
     app = Flask(__name__)
+    
+    CORS(app)  # CORSを有効化
 
     # コンフィグをロード
     app.config.from_object('config.Config')
@@ -18,6 +21,7 @@ def create_app():
     bcrypt.init_app(app)
     jwt = JWTManager(app)
     migrate = Migrate(app, db)
+    
 
     # ルーティングを登録
     from .routes import api
