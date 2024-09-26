@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file
-from .models import User, StampDetail, db
+from .models import User, StampDetail, Spot, db
 from . import bcrypt
 from flask_jwt_extended import create_access_token, jwt_required
 from io import BytesIO
@@ -43,6 +43,26 @@ def login():
     # JWTトークンを作成
     access_token = create_access_token(identity={'email': user.email, 'name': user.name})
     return jsonify({'access_token': access_token}), 200
+
+
+# 観光地一覧取得API
+@api.route('/spots_list', methods=['GET'])
+def get_spots_list():
+    # データベースから全観光地を取得し、名前のあいうえお順で並べ替える
+    spots = Spot.query.order_by(Spot.spot_name.asc()).all()
+
+    # 取得したデータをレスポンス用のリストに整形
+    spots_list = [
+        {
+            'spot_id': spot.id,
+            'spot_name': spot.spot_name,
+            'thum_image': spot.thum_image
+        }
+        for spot in spots
+    ]
+
+    # JSON形式でレスポンスを返す
+    return jsonify({'spots_list': spots_list}), 200
 
 
 # QRコードで読み取った観光地IDを基に、スタンプの状態を更新するAPI
