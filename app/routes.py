@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-from .models import User, db
+from .models import User, StampDetail, db
 from . import bcrypt
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required
 
 api = Blueprint('api', __name__)
 
@@ -25,6 +25,7 @@ def register():
 
     return jsonify({'message': 'ユーザー登録に成功しました'}), 201
 
+
 # ログインエンドポイント
 @api.route('/login', methods=['POST'])
 def login():
@@ -40,3 +41,20 @@ def login():
     # JWTトークンを作成
     access_token = create_access_token(identity={'email': user.email, 'name': user.name})
     return jsonify({'access_token': access_token}), 200
+
+
+# QRコードで読み取った観光地IDを基に、スタンプの状態を更新するAPI
+@api.route('/update-stamp', methods=['POST'])
+def update_stamp():
+    data = request.get_json()
+    user_id = data.get('userId')
+    spot_id = data.get('spotId')
+
+    # スタンプ詳細を検索して更新
+    stamp_detail = StampDetail.query.filter_by(stamp_id=user_id, spot_id=spot_id).first()
+    if stamp_detail:
+        stamp_detail.status = 1  # 状態を実施済みに更新
+        db.session.commit()
+        return jsonify({'message': 'スタンプが更新されました'}), 200
+    else:
+        return jsonify({'message': 'QRコードが無効です'}), 404

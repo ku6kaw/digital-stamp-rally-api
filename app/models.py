@@ -1,4 +1,6 @@
 from . import db, bcrypt
+from datetime import datetime
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -16,3 +18,24 @@ class User(db.Model):
 
     def check_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
+    
+# Stampモデル
+class Stamp(db.Model):
+    __tablename__ = 'stamp'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    status = db.Column(db.Integer, nullable=False, default=0)
+    
+    # リレーション
+    details = db.relationship('StampDetail', backref='stamp', lazy=True)
+
+# StampDetailモデル
+class StampDetail(db.Model):
+    __tablename__ = 'stamp_detail'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    stamp_id = db.Column(db.Integer, db.ForeignKey('stamp.id'), nullable=False)
+    spot_id = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.Integer, nullable=False, default=0)
