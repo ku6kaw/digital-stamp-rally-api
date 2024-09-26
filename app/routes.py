@@ -1,7 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from .models import User, StampDetail, db
 from . import bcrypt
 from flask_jwt_extended import create_access_token, jwt_required
+from io import BytesIO
+import qrcode
 
 api = Blueprint('api', __name__)
 
@@ -58,3 +60,36 @@ def update_stamp():
         return jsonify({'message': 'スタンプが更新されました'}), 200
     else:
         return jsonify({'message': 'QRコードが無効です'}), 404
+
+
+# 観光地IDを持つQRコードを生成するエンドポイント
+@api.route('/generate-qrcode', methods=['POST'])
+def generate_qrcode():
+    data = request.get_json()
+    spot_id = data.get('spotId')
+
+    if not spot_id:
+        return jsonify({'message': '観光地IDが必要です'}), 400
+
+    # QRコードの内容に観光地IDを埋め込む
+    qr_data = f"spot_id:{spot_id}"
+
+    # QRコードを生成
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+
+    # 生成したQRコードを画像に変換
+    img = qr.make_image(fill='black', back_color='white')
+
+    # 画像をバイナリとしてレスポンスに送信
+    img_io = BytesIO()
+    img.save(img_io, 'PNG')
+    img_io.seek(0)
+
+    return send_file(img_io, mimetype='image/png')
