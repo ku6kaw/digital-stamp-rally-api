@@ -3,6 +3,8 @@ from .models import User, db, Spot, Stamp, StampDetail
 from . import bcrypt
 from flask_jwt_extended import create_access_token
 from .GenerateRoute.dummy_data import DummyData
+from .GenerateRoute.generate_route_wrapper import GENERATE_ROUTE_WRAPPER
+from .GenerateRoute.calculate_travel_time import CALCULATE_TRAVEL_TIME
 
 api = Blueprint('api', __name__)
 
@@ -42,17 +44,12 @@ def login():
     access_token = create_access_token(identity={'email': user.email, 'name': user.name})
     return jsonify({'access_token': access_token}), 200
 
-
 #　経路生成エンドポイント
 @api.route('/generate-route', methods=['POST'])
 def generate_route():
+    # userからデータを受け取る
     data = request.get_json()
-    print(data)
-    return jsonify({'route': [1]}), 200
-
-
-@api.route('/dummy_get', methods=['GET'])
-def dummy_get():
+    # データベースからデータを受け取る
     spots = Spot.query.all()
     spot_list = []
     for spot in spots:
@@ -64,7 +61,25 @@ def dummy_get():
             'recommendation': spot.recommendation,
             'spot_type': spot.spot_type
         })
-    return jsonify({'spot_list': spot_list}), 200
+    try:
+        func_gen = GENERATE_ROUTE_WRAPPER(data, spot_list)
+    except:
+        return jsonify({"message": "データが不正です"}), 400
+    route = func_gen.execute_generate_route()
+    if route == False:
+        return jsonify({"message": "経路が見つかりませんでした"}), 400
+    func_calc = CALCULATE_TRAVEL_TIME(route, spot_list)
+    route_info = func_calc.calculate_travel_time()
+    # スタンプラリーの保存
+    stamp = Stamp(user_id=data.get('user_id'), status=0)
+    db.session.add(stamp)
+    db.session.commit()
+    stamp_id = stamp.id
+    for spot_id in route:
+        stamp_detail = StampDetail(stamp_id=stamp_id, spot_id=spot_id)
+        db.session.add(stamp_detail)
+    db.session.commit()
+    return jsonify(route_info), 200
 
 # dummyデータをデータベースに登録する
 @api.route('/dummy_insert', methods=['GET'])
@@ -72,7 +87,7 @@ def dummy_insert():
     for item in DummyData:
         spot = Spot(
             spot_name=item['spot_name'],
-            coordinate=str(item['coordinate']),  # 配列を文字列に変換
+            coordinate=str(item['coordinate']),
             staying_time=item['staying_time'],
             recommendation=item['recommendation'],
             spot_type=item['spot_type']
