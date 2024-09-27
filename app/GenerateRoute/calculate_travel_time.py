@@ -17,7 +17,8 @@ class CALCULATE_TRAVEL_TIME:
                     "spot_name": spot["spot_name"],
                     "recommendation": spot["recommendation"],
                     "spot_type": spot["spot_type"],
-                    "staying_time": spot["staying_time"]
+                    "staying_time": spot["staying_time"],
+                    "status": spot["status"]
                 }
 
 
@@ -41,7 +42,8 @@ class CALCULATE_TRAVEL_TIME:
             places.append({
                 "place_name": self.route_data[i]["spot_name"],
                 "stay_time": f"{start_time // 60:02}:{start_time % 60:02}-{end_time // 60:02}:{end_time % 60:02}",
-                "next_place_travel_time": next_place_travel_time
+                "next_place_travel_time": next_place_travel_time,
+                "status" : self.route_data[i]["status"]
             })
         total_time += self.route_data[-1]["staying_time"]
 
