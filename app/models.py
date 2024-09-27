@@ -27,11 +27,16 @@ class Spot(db.Model):
     text = db.Column(db.Text)
     address = db.Column(db.Text)
     coordinate = db.Column(db.Text)
-    image = db.Column(db.Text)
     thum_image = db.Column(db.Text)
     staying_time = db.Column(db.Integer)
     recommendation = db.Column(db.Integer, nullable=False)
     spot_type = db.Column(db.Integer, nullable=False)
+    image1 = db.Column(db.Text)
+    image2 = db.Column(db.Text)
+    image3 = db.Column(db.Text)
+    image4 = db.Column(db.Text)
+    image5 = db.Column(db.Text)
+    image6 = db.Column(db.Text)
 
     reviews = db.relationship('Review', backref='spot', lazy=True)
     

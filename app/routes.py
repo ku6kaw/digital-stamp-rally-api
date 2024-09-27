@@ -314,8 +314,13 @@ def building_detail(spot_id):
         'name': spot_data.spot_name,
         'description': spot_data.text,
         'address': spot_data.address,
-        'photo_url': spot_data.image,
         'staying_time': spot_data.staying_time,
+        'image1': spot_data.image1,
+        'image2': spot_data.image2,
+        'image3': spot_data.image3,
+        'image4': spot_data.image4,
+        'image5': spot_data.image5,
+        'image6': spot_data.image6,
         'reviews': review_list
     }
     return jsonify(identity_dict), 200
