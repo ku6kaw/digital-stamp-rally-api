@@ -80,13 +80,14 @@ def building_detail(spot_id):
     review_list = [
         {
             'review_id': revew_data.id,
+            'user_id': revew_data.user_id,
             'date': revew_data.date,
-            'review_text': revew_data.text
+            'text': revew_data.text,
+            'report': revew_data.report,
+            'confirmation': revew_data.confirmation
     }
     for revew_data in revew_data_all
     ]
     # # JWTトークンを作成
-    access_token = create_access_token(identity={ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'review_list': review_list})
+    access_token = create_access_token(identity={ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'reviews': review_list})
     return jsonify({'access_token': access_token}), 200
-    # ↓テスト用
-    # return jsonify({ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'review_list': review_list}), 200
