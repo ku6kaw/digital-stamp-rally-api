@@ -1,4 +1,4 @@
-"""route.pyにコピペすれば動くはずです"""
+"""routes.pyにコピペすれば動くはずです"""
 from datetime import datetime
 
 #口コミ追加
@@ -91,3 +91,5 @@ def building_detail(spot_id):
     # # JWTトークンを作成
     access_token = create_access_token(identity={ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'reviews': review_list})
     return jsonify({'access_token': access_token}), 200
+    # ↓テスト用
+    # return jsonify({ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'review_list': review_list}), 200
