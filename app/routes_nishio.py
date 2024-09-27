@@ -5,6 +5,7 @@ from flask_jwt_extended import create_access_token
 
 api = Blueprint('api', __name__)
 
+
 # ユーザー登録エンドポイント
 @api.route('/register', methods=['POST'])
 def register():
