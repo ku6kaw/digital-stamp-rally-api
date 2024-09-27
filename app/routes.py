@@ -216,7 +216,7 @@ author : ninomiya osuke
 口コミの管理者ページ周りの処理
 '''
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
+# 悪質レビュー取得のエンドポイント
 @api.route('/get_reviews')
 def get_reviews():
     # レビューを取得
@@ -232,6 +232,16 @@ def get_reviews():
     if result == []:
         return jsonify({"message": "該当のものがありません"}), 404
     return jsonify(result), 200
+
+# レビュー承認のエンドポイント
+@api.route('/approve/<int:review_id>', methods=['POST'])
+def approve_review(review_id):
+    review = Review.query.get(review_id)  # IDでレビューを取得
+    if review is None:
+        return jsonify({"message": "レビューが見つかりません"}), 404
+    review.confirmation = 1
+    db.session.commit()
+    return jsonify({"message": "レビューが承認されました"}), 200
 
 # def allowed_file(filename):
 #     return '.' in filename and \
@@ -301,13 +311,6 @@ def get_reviews():
 # @app.route('/review')
 # def review():
 #     return render_template('review.html')
-
-# @app.route('/approve/<int:review_id>', methods=['POST'])
-# def approve_review(review_id):
-#     cursor = mydb.cursor()
-#     cursor.execute("UPDATE review SET confirmation = 1 WHERE id = %s", (review_id,))
-#     mydb.commit()
-#     return "OK"
 
 # @app.route('/delete/<int:review_id>', methods=['POST'])
 # def delete_review(review_id):
