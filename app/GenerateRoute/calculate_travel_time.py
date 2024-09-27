@@ -11,15 +11,17 @@ class CALCULATE_TRAVEL_TIME:
     def pre_process(self):
         for spot in self.database_data:
             if spot["id"] in self.route:
-                self.route_data[self.route.index(spot["id"])] = {
-                    "coordinate": self._coordinate_to_list(spot["coordinate"]),
-                    "id": spot["id"],
-                    "spot_name": spot["spot_name"],
-                    "recommendation": spot["recommendation"],
-                    "spot_type": spot["spot_type"],
-                    "staying_time": spot["staying_time"],
-                    "status": spot["status"]
-                }
+                for i in range(len(self.route)):
+                    if self.route[i] == spot["id"]:
+                        self.route_data[i] = {
+                            "coordinate": self._coordinate_to_list(spot["coordinate"]),
+                            "id": spot["id"],
+                            "spot_name": spot["spot_name"],
+                            "recommendation": spot["recommendation"],
+                            "spot_type": spot["spot_type"],
+                            "staying_time": spot["staying_time"],
+                            "status": spot["status"]
+                        }
 
 
     def _coordinate_to_list(self, coordinate):
@@ -37,6 +39,7 @@ class CALCULATE_TRAVEL_TIME:
             total_time += self.route_data[i]["staying_time"]
             if i < len(self.route_data) - 1:
                 next_place_travel_time = abs(self.route_data[i]["coordinate"][0] - self.route_data[i + 1]["coordinate"][0]) + abs(self.route_data[i]["coordinate"][1] - self.route_data[i + 1]["coordinate"][1])
+                total_time += next_place_travel_time
             else:
                 next_place_travel_time = None
             places.append({
