@@ -7,6 +7,7 @@ import qrcode
 from .GenerateRoute.dummy_data import DummyData
 from .GenerateRoute.generate_route_wrapper import GENERATE_ROUTE_WRAPPER
 from .GenerateRoute.calculate_travel_time import CALCULATE_TRAVEL_TIME
+from datetime import datetime
 
 api = Blueprint('api', __name__)
 
@@ -253,17 +254,11 @@ def delete_review(review_id):
     return jsonify({"message": "レビューが削除されました"}), 200
 
 
-from datetime import datetime
-
-#口コミ追加
-"""
-入力
-user_id
-spot_id
-text
-出力
-なし
-"""
+'''
+author : nishio takumi
+口コミの管理者ページ周りの処理
+'''
+#口コミ追加エンドポイント
 @api.route('/add_review', methods=['POST'])
 def add_review():
     data = request.get_json()
@@ -277,62 +272,30 @@ def add_review():
     
     db.session.add(new_review)
     db.session.commit()
-    
+    return jsonify({"message": "口コミ追加を成功しました"}), 200
 
-    
-
-    return jsonify({'status': 'success'})
-
-#口コミ通報
-"""
-入力
-review_id ... 口コミのid
-出力
-なし
-"""
+#口コミ通報エンドポイント
 @api.route('/report_review', methods=['POST'])
 def report_review():
     data = request.get_json()
     review_id = data.get('id')
     #Flagを立てる
     test = db.session.query(Review).filter(Review.id==review_id).first()
-    test.report = True
+    if test is None:
+        return jsonify({"message": "口コミが見つかりません"}), 404
+    test.report = 1
     db.session.commit()
     
+    return jsonify({"message": "口コミを通報しました"}), 200
 
-    return jsonify({'status': 'success'})
-
-# 建物の詳細ページを表示
-"""
-入力
-spot_id
-
-出力
-spot_id
-name
-description ... spotの紹介文
-address
-phpto_url
-staying_time
-reviews = [{
-review_id
-user_id
-date
-text
-report
-confiration
-}*口コミの個数分]
-"""
-@api.route('/tourist_spots/<int:spot_id>', methods=['POST'])
+# 建物の詳細ページのエンドポイント
+@api.route('/tourist_spots/<int:spot_id>', methods=['GET'])
 def building_detail(spot_id):
-    data = request.get_json()
-    spot_id_ = data.get('spot_id')
+    spot_data = db.session.query(Spot).filter(Spot.id==spot_id).first()# 建物の紹介文と住所
+    if spot_data is None:
+        return jsonify({"message": "該当のものがありません"}), 404
 
-
-    # 建物の紹介文と住所を取得
-    spot_data = db.session.query(Spot).filter(Spot.id==spot_id_).first()
-    # 口コミ情報を取得
-    revew_data_all = db.session.query(Review).filter(Review.spot_id==spot_id_)
+    revew_data_all = db.session.query(Review).filter(Review.spot_id==spot_id)# 口コミ情報
 
     review_list = [
         {
@@ -342,11 +305,17 @@ def building_detail(spot_id):
             'text': revew_data.text,
             'report': revew_data.report,
             'confirmation': revew_data.confirmation
-    }
-    for revew_data in revew_data_all
+        }
+        for revew_data in revew_data_all
     ]
-    # # JWTトークンを作成
-    access_token = create_access_token(identity={ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'reviews': review_list})
-    return jsonify({'access_token': access_token}), 200
-    # ↓テスト用
-    # return jsonify({ 'spot_id':spot_data.id,  'name': spot_data.spot_name, 'description': spot_data.text, 'address': spot_data.address, 'photo_url': spot_data.image, 'staying_time':spot_data.staying_time, 'review_list': review_list}), 200
+
+    identity_dict = {
+        'spot_id': spot_data.id,
+        'name': spot_data.spot_name,
+        'description': spot_data.text,
+        'address': spot_data.address,
+        'photo_url': spot_data.image,
+        'staying_time': spot_data.staying_time,
+        'reviews': review_list
+    }
+    return jsonify(identity_dict), 200
