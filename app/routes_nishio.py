@@ -5,7 +5,6 @@ from flask_jwt_extended import create_access_token
 
 api = Blueprint('api', __name__)
 
-
 # ユーザー登録エンドポイント
 @api.route('/register', methods=['POST'])
 def register():
@@ -142,3 +141,5 @@ def building_detail(spot_id):
 @api.route('/test', methods=['POST'])
 def test():
     return jsonify({'status': 'success'})
+
+
