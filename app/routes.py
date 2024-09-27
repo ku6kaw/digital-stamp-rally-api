@@ -243,17 +243,20 @@ def approve_review(review_id):
     db.session.commit()
     return jsonify({"message": "レビューが承認されました"}), 200
 
+# レビュー削除のエンドポイント
+@api.route('/delete_review/<int:review_id>', methods=['DELETE'])
+def delete_review(review_id):
+    review = Review.query.get(review_id)  # IDでレビューを取得
+    if review is None:
+        return jsonify({"message": "レビューが見つかりません"}), 404
+    db.session.delete(review)  # レビューをセッションから削除
+    db.session.commit()
+    return jsonify({"message": "レビューが削除されました"}), 200
+
+
 # def allowed_file(filename):
 #     return '.' in filename and \
 #            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# @app.route('/')
-# def index():
-#     return render_template('main.html')
-
-# @app.route('/place')
-# def place():
-#     return render_template('place.html')
 
 # @app.route('/upload', methods=['POST'])
 # def upload_place():
@@ -307,14 +310,3 @@ def approve_review(review_id):
 #         return "ファイル形式が不正です"
 
 #     return redirect(url_for('index'))
-
-# @app.route('/review')
-# def review():
-#     return render_template('review.html')
-
-# @app.route('/delete/<int:review_id>', methods=['POST'])
-# def delete_review(review_id):
-#     cursor = mydb.cursor()
-#     cursor.execute("DELETE FROM review WHERE id = %s", (review_id,))
-#     mydb.commit()
-#     return "OK"
