@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file
-from .models import User, Stamp, StampDetail, Spot, db
+from .models import User, Stamp, StampDetail, Spot, Review, db
 from . import bcrypt
 from flask_jwt_extended import create_access_token, jwt_required
 from io import BytesIO
@@ -117,6 +117,12 @@ def generate_qrcode():
 
     return send_file(img_io, mimetype='image/png')
 
+
+
+'''
+author : kabetani yusei
+経路生成周りの処理
+'''
 # スタンプラリークリック時エンドポイント
 @api.route('stamp-rally/incomplete', methods=['POST'])
 def stamp_rally_imcomplete():
@@ -202,3 +208,110 @@ def dummy_insert():
     
     db.session.commit()  # データベースに変更をコミット
     return jsonify({"message": "Data inserted successfully!"}), 201
+
+
+
+'''
+author : ninomiya osuke
+口コミの管理者ページ周りの処理
+'''
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+@api.route('/get_reviews')
+def get_reviews():
+    # レビューを取得
+    reviews = (
+        db.session.query(Review.id, Review.text, Spot.spot_name)
+        .join(Spot, Review.spot_id == Spot.id)
+        .filter(Review.report == 1, Review.confirmation == 0)
+        .all()
+    )
+    
+    # 結果を辞書形式に変換
+    result = [{'id': r.id, 'text': r.text, 'spot_name': r.spot_name} for r in reviews]
+    if result == []:
+        return jsonify({"message": "該当のものがありません"}), 404
+    return jsonify(result), 200
+
+# def allowed_file(filename):
+#     return '.' in filename and \
+#            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# @app.route('/')
+# def index():
+#     return render_template('main.html')
+
+# @app.route('/place')
+# def place():
+#     return render_template('place.html')
+
+# @app.route('/upload', methods=['POST'])
+# def upload_place():
+#     if request.method == 'POST':
+#         thumbnail = request.files['thumbnail']
+#         name = request.form['name']
+#         address = request.form['address']
+#         coordinates = request.form['coordinates']
+#         avg_stay_time = request.form['avg_stay_time']
+#         popularity = request.form['popularity']
+#         type = request.form['type']
+#         description = request.form['description']
+#         photos = request.files.getlist('photos[]')
+
+#         thumbnail_url = ''
+
+#         if thumbnail and allowed_file(thumbnail.filename):
+#             thumbnail_filename = os.path.join('thumbnails', thumbnail.filename) if thumbnail.filename else None
+#             if thumbnail_filename:
+#                 s3.upload_fileobj(thumbnail, S3_BUCKET_NAME, thumbnail_filename)
+#                 thumbnail_url = f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{thumbnail_filename}"
+
+#         # 最大6枚の画像URLを格納するリスト
+#         image_urls = [''] * 6
+
+#         for i, photo in enumerate(photos):
+#             if photo and allowed_file(photo.filename) and i < 6:
+#                 photo_filename = os.path.join('photos', photo.filename) if photo.filename else None
+#                 if photo_filename:
+#                     s3.upload_fileobj(photo, S3_BUCKET_NAME, photo_filename)
+#                     image_urls[i] = f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{photo_filename}"
+
+#         cursor = mydb.cursor()
+#         sql = "INSERT INTO spot_info (spot_name, text, address, coordinate, image1, image2, image3, image4, image5, image6, thum_image, staying_time, recommendation, spot_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+#         val = (
+#             name,
+#             description,
+#             address,
+#             coordinates,
+#             *image_urls,
+#             thumbnail_url,
+#             avg_stay_time,
+#             popularity,
+#             type
+#         )
+#         cursor.execute(sql, val)
+#         mydb.commit()
+
+#         return "場所が投稿されました！"
+#     else:
+#         return "ファイル形式が不正です"
+
+#     return redirect(url_for('index'))
+
+# @app.route('/review')
+# def review():
+#     return render_template('review.html')
+
+# @app.route('/approve/<int:review_id>', methods=['POST'])
+# def approve_review(review_id):
+#     cursor = mydb.cursor()
+#     cursor.execute("UPDATE review SET confirmation = 1 WHERE id = %s", (review_id,))
+#     mydb.commit()
+#     return "OK"
+
+# @app.route('/delete/<int:review_id>', methods=['POST'])
+# def delete_review(review_id):
+#     cursor = mydb.cursor()
+#     cursor.execute("DELETE FROM review WHERE id = %s", (review_id,))
+#     mydb.commit()
+#     return "OK"
