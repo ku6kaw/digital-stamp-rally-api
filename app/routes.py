@@ -44,6 +44,37 @@ def login():
     access_token = create_access_token(identity={'email': user.email, 'name': user.name})
     return jsonify({'access_token': access_token}), 200
 
+# スタンプラリークリック時エンドポイント
+@api.route('stamp-rally/incomplete', methods=['POST'])
+def stamp_rally_imcomplete():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    stamp = Stamp.query.filter_by(user_id=user_id, status=0).first()
+    if not stamp:
+        return jsonify({"exist": False}), 200
+
+    #スタンプラリーが見つかった場合は、stamp_detailから詳細を取得する
+    stamp_details = StampDetail.query.filter_by(stamp_id=stamp.id).all()
+    spot_list = []
+    route = []
+    for stamp_detail in stamp_details:
+        spot = Spot.query.filter_by(id=stamp_detail.spot_id).first()
+        route.append(spot.id)
+        spot_list.append({
+            "id": spot.id,
+            "spot_name": spot.spot_name,
+            "coordinate": spot.coordinate,
+            "staying_time": spot.staying_time,
+            "recommendation": spot.recommendation,
+            "spot_type": spot.spot_type,
+            'status': stamp_detail.status
+        })
+    func_calc = CALCULATE_TRAVEL_TIME(route, spot_list)
+    route_info = func_calc.calculate_travel_time()
+    route_info["exist"] = True
+    route_info["stamp_id"] = stamp.id
+    return jsonify(route_info), 200
+
 #　経路生成エンドポイント
 @api.route('/generate-route', methods=['POST'])
 def generate_route():
@@ -59,7 +90,8 @@ def generate_route():
             'coordinate': spot.coordinate,
             'staying_time': spot.staying_time,
             'recommendation': spot.recommendation,
-            'spot_type': spot.spot_type
+            'spot_type': spot.spot_type,
+            'status' : 0
         })
     try:
         func_gen = GENERATE_ROUTE_WRAPPER(data, spot_list)
@@ -79,6 +111,7 @@ def generate_route():
         stamp_detail = StampDetail(stamp_id=stamp_id, spot_id=spot_id)
         db.session.add(stamp_detail)
     db.session.commit()
+    route_info['stamp_id'] = stamp_id
     return jsonify(route_info), 200
 
 # dummyデータをデータベースに登録する
