@@ -1,7 +1,10 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, render_template
 from .models import User, Stamp, StampDetail, Spot, Review, db
 from . import bcrypt
 from flask_jwt_extended import create_access_token, jwt_required
+import boto3
+import os
+import uuid
 from io import BytesIO
 import qrcode
 from .GenerateRoute.dummy_data import DummyData
@@ -324,3 +327,85 @@ def building_detail(spot_id):
         'reviews': review_list
     }
     return jsonify(identity_dict), 200
+
+
+# S3の設定
+S3_BUCKET_NAME = "bucket-yamada-1"
+S3_REGION = "ap-northeast-1"
+s3 = boto3.client('s3', region_name=S3_REGION)
+# 画像アップロード許可拡張子
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def upload_file_to_s3(file, acl="public-read"):
+    try:
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        new_filename = f"{uuid.uuid4()}.{ext}"
+        file_path = f"static/images/{new_filename}"
+        s3.upload_fileobj(
+            file,
+            S3_BUCKET_NAME,
+            file_path,
+            ExtraArgs={"ACL": acl, "ContentType": file.content_type}
+        )
+        return f"/static/images/{new_filename}"  # 相対パスを返す
+    except Exception as e:
+        print("Something Happened: ", e)
+        return None
+# 観光地データのアップロードエンドポイント
+@api.route('/upload', methods=['POST'])
+def upload_place():
+    try:
+        if request.method == 'POST':
+            # 必須フィールドのチェック
+            required_fields = ['name', 'address', 'coordinates', 'avg_stay_time', 'popularity', 'type', 'description']
+            for field in required_fields:
+                if field not in request.form:
+                    return jsonify({"error": f"{field}が入力されていません。"}), 400
+            thumbnail = request.files['thumbnail']
+            name = request.form['name']
+            address = request.form['address']
+            coordinates = request.form['coordinates']
+            avg_stay_time = request.form['avg_stay_time']
+            popularity = request.form['popularity']
+            type = request.form['type']
+            description = request.form['description']
+            photos = request.files.getlist('photos[]')
+            # サムネイルのチェック
+            if not thumbnail or not allowed_file(thumbnail.filename):
+                return jsonify({"error": "サムネイル画像が無効です。"}), 400
+            thumbnail_url = upload_file_to_s3(thumbnail)
+            if not thumbnail_url:
+                return jsonify({"error": "サムネイル画像のアップロードに失敗しました。"}), 500
+            image_urls = [''] * 6
+            for i, photo in enumerate(photos):
+                if i >= 6:
+                    break
+                if photo and allowed_file(photo.filename):
+                    image_url = upload_file_to_s3(photo)
+                    if not image_url:
+                        return jsonify({"error": f"{i+1}番目の画像のアップロードに失敗しました。"}), 500
+                    image_urls[i] = image_url
+            # データベースに保存
+            new_spot = Spot(
+                spot_name=name,
+                text=description,
+                address=address,
+                coordinate=coordinates,
+                image1=image_urls[0],
+                image2=image_urls[1],
+                image3=image_urls[2],
+                image4=image_urls[3],
+                image5=image_urls[4],
+                image6=image_urls[5],
+                thum_image=thumbnail_url,
+                staying_time=avg_stay_time,
+                recommendation=popularity,
+                spot_type=type
+            )
+            db.session.add(new_spot)
+            db.session.commit()
+            return jsonify({"message": "場所が正常に投稿されました！"}), 200
+    except Exception as e:
+        return jsonify({"error": f"予期せぬエラーが発生しました: {str(e)}"}), 500
+    return jsonify({"error": "無効なリクエストです。"}), 400
