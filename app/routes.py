@@ -76,21 +76,39 @@ def get_spots_list():
     return jsonify({'spots_list': spots_list}), 200
 
 
-# QRコードで読み取った観光地IDを基に、スタンプの状態を更新するAPI
+# QRコードで読み取った観光地IDを基に、スタンプの状態を更新し観光地名を返すAPI
 @api.route('/update-stamp', methods=['POST'])
 def update_stamp():
     data = request.get_json()
     user_id = data.get('userId')
     spot_id = data.get('spotId')
 
-    # スタンプ詳細を検索して更新
-    stamp_detail = StampDetail.query.filter_by(stamp_id=user_id, spot_id=spot_id).first()
+    # まず、ユーザーの未完了スタンプラリーを取得
+    stamp = Stamp.query.filter_by(user_id=user_id, status=0).first()  # status=0は未完了
+
+    if not stamp:
+        return jsonify({'message': '未完了のスタンプラリーが見つかりません'}), 404
+
+    # 取得した stamp_id と spot_id でスタンプ詳細を検索
+    stamp_detail = StampDetail.query.filter_by(stamp_id=stamp.id, spot_id=spot_id).first()
+
     if stamp_detail:
         stamp_detail.status = 1  # 状態を実施済みに更新
         db.session.commit()
-        return jsonify({'message': 'スタンプが更新されました'}), 200
+
+        # 関連する観光地情報を取得
+        spot = Spot.query.filter_by(id=spot_id).first()
+        if spot:
+            return jsonify({
+                'message': 'スタンプが更新されました',
+                'spot_name': spot.spot_name  # 観光地名をレスポンスに含める
+            }), 200
+        else:
+            return jsonify({'message': '観光地が見つかりません'}), 404
     else:
         return jsonify({'message': 'QRコードが無効です'}), 404
+
+
 
 
 # 観光地IDを持つQRコードを生成するエンドポイント
@@ -164,23 +182,25 @@ def stamp_rally_imcomplete():
 
 # スタンプラリー情報取得エンドポイント
 @api.route('/stamp-rally/details', methods=['POST'])
-def get_stamp_rally_details():
+def get_incomplete_stamp_rally():
     try:
-        # リクエストからstamp_idを取得
+        # リクエストからuser_idを取得
         data = request.get_json()
-        stamp_id = data.get('stamp_id')
+        user_id = data.get('user_id')
 
-        # stamp_idがリクエストにない場合はエラーレスポンスを返す
-        if not stamp_id:
-            return jsonify({"message": "スタンプラリーIDが指定されていません"}), 400
+        # user_idがリクエストにない場合はエラーレスポンスを返す
+        if not user_id:
+            return jsonify({"message": "ユーザーIDが指定されていません"}), 400
 
-        # スタンプラリーをデータベースから取得
-        stamp = Stamp.query.filter_by(id=stamp_id).first()
+        # 指定されたuser_idの未完了のスタンプラリーを取得（status=0が未完了）
+        stamp = Stamp.query.filter_by(user_id=user_id, status=0).first()
+
+        # スタンプラリーが見つからない場合、存在しないことをレスポンス
         if not stamp:
-            return jsonify({"message": "スタンプラリーが見つかりません"}), 404
+            return jsonify({"exist": False}), 200
 
         # スタンプラリーに含まれるスタンプ詳細（観光地情報）を取得
-        stamp_details = StampDetail.query.filter_by(stamp_id=stamp_id).all()
+        stamp_details = StampDetail.query.filter_by(stamp_id=stamp.id).all()
 
         if not stamp_details:
             return jsonify({"message": "スタンプラリーの詳細情報が見つかりません"}), 404
@@ -200,8 +220,9 @@ def get_stamp_rally_details():
                     'status': stamp_detail.status  # 0: 未訪問, 1: 訪問済み
                 })
 
-        # スタンプラリーの詳細をレスポンスとして返す
+        # 未完了のスタンプラリーの詳細をレスポンスとして返す
         response = {
+            "exist": True,
             "stamp_id": stamp.id,
             "user_id": stamp.user_id,
             "status": stamp.status,  # 0: 未完了, 1: 完了
@@ -212,6 +233,7 @@ def get_stamp_rally_details():
 
     except Exception as e:
         return jsonify({"message": f"サーバーエラーが発生しました: {str(e)}"}), 500
+
 
 
 #　経路生成エンドポイント
@@ -281,8 +303,6 @@ def generate_route():
     
     route_info['stamp_id'] = stamp_id
     return jsonify(route_info), 200
-
-
 
 
 
