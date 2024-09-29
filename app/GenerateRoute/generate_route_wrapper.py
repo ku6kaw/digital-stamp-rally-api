@@ -22,21 +22,36 @@ class GENERATE_ROUTE_WRAPPER:
 
     def pre_process(self):
         for spot in self.database_data:
+            print(f"現在処理中のスポット: {spot['spot_name']}, 座標: {spot['coordinate']}")
             if spot["spot_name"] == self.userdata["selected_place"]:
                 self.data["selected_place_id"] = spot["id"]
             if spot["spot_name"] == self.userdata["start_station"]:
                 self.data["start_id"] = spot["id"]
             if spot["spot_name"] == self.userdata["goal_station"]:
                 self.data["goal_id"] = spot["id"]
-            self.data["spot_list"].append({
-                "coordinate": self._coordinate_to_list(spot["coordinate"]),
-                "id": spot["id"],
-                "recommendation": spot["recommendation"],
-                "spot_type": spot["spot_type"],
-                "staying_time": spot["staying_time"]
-            })
+            try:
+                self.data["spot_list"].append({
+                    "coordinate": self._coordinate_to_list(spot["coordinate"]),
+                    "id": spot["id"],
+                    "recommendation": spot["recommendation"],
+                    "spot_type": spot["spot_type"],
+                    "staying_time": spot["staying_time"]
+                })
+            except ValueError as e:
+                print(f"エラーが発生したスポット: {spot['spot_name']}, エラー: {e}")
+
     def _coordinate_to_list(self, coordinate):
-        return list(map(int, coordinate[1:-1].split(',')))
+        if not coordinate or coordinate == '':  # 空の座標をチェック
+            raise ValueError("座標が空です")
+        
+        try:
+            coordinates = coordinate[1:-1].split(',')
+            return list(map(int, coordinates))
+        except ValueError as e:
+            print(f"座標の変換中にエラーが発生しました: {e}, 座標: {coordinate}")
+            raise e
+
+
 
     def execute_generate_route(self):
         func = GENERATE_ROUTE(self.data)

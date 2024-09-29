@@ -45,14 +45,15 @@ def login():
     email = data.get('email')
     password = data.get('password')
 
-    # ユーザーを検索
+    # emailに基づいてユーザーを検索
     user = User.query.filter_by(email=email).first()
-    if not user or not user.check_password(password):
-        return jsonify({'message': 'メールアドレスまたはパスワードが間違っています'}), 401
 
-    # JWTトークンを作成
-    access_token = create_access_token(identity={'email': user.email, 'name': user.name})
-    return jsonify({'access_token': access_token}), 200
+    if user and user.check_password(password):  # パスワードチェック
+        # トークンに user_id と email を含める
+        access_token = create_access_token(identity={"user_id": user.id, "email": user.email})
+        return jsonify(access_token=access_token), 200
+    else:
+        return jsonify({"message": "認証に失敗しました"}), 401
 
 
 # 観光地一覧取得API
@@ -161,11 +162,74 @@ def stamp_rally_imcomplete():
     route_info["stamp_id"] = stamp.id
     return jsonify(route_info), 200
 
+# スタンプラリー情報取得エンドポイント
+@api.route('/stamp-rally/details', methods=['POST'])
+def get_stamp_rally_details():
+    try:
+        # リクエストからstamp_idを取得
+        data = request.get_json()
+        stamp_id = data.get('stamp_id')
+
+        # stamp_idがリクエストにない場合はエラーレスポンスを返す
+        if not stamp_id:
+            return jsonify({"message": "スタンプラリーIDが指定されていません"}), 400
+
+        # スタンプラリーをデータベースから取得
+        stamp = Stamp.query.filter_by(id=stamp_id).first()
+        if not stamp:
+            return jsonify({"message": "スタンプラリーが見つかりません"}), 404
+
+        # スタンプラリーに含まれるスタンプ詳細（観光地情報）を取得
+        stamp_details = StampDetail.query.filter_by(stamp_id=stamp_id).all()
+
+        if not stamp_details:
+            return jsonify({"message": "スタンプラリーの詳細情報が見つかりません"}), 404
+
+        # 各観光地の詳細情報を収集
+        spot_list = []
+        for stamp_detail in stamp_details:
+            spot = Spot.query.filter_by(id=stamp_detail.spot_id).first()
+            if spot:
+                spot_list.append({
+                    "id": spot.id,
+                    "spot_name": spot.spot_name,
+                    "coordinate": spot.coordinate,
+                    "staying_time": spot.staying_time,
+                    "recommendation": spot.recommendation,
+                    "spot_type": spot.spot_type,
+                    'status': stamp_detail.status  # 0: 未訪問, 1: 訪問済み
+                })
+
+        # スタンプラリーの詳細をレスポンスとして返す
+        response = {
+            "stamp_id": stamp.id,
+            "user_id": stamp.user_id,
+            "status": stamp.status,  # 0: 未完了, 1: 完了
+            "spots": spot_list
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        return jsonify({"message": f"サーバーエラーが発生しました: {str(e)}"}), 500
+
+
 #　経路生成エンドポイント
+import logging
+
 @api.route('/generate-route', methods=['POST'])
 def generate_route():
     # userからデータを受け取る
     data = request.get_json()
+
+    # バリデーション: user_id が空でないか確認
+    user_id = data.get('user_id')
+    if not user_id or not str(user_id).isdigit():
+        return jsonify({"message": "user_idが不正です"}), 400
+
+    # user_id を整数に変換
+    user_id = int(user_id)
+
     # データベースからデータを受け取る
     spots = Spot.query.all()
     spot_list = []
@@ -177,28 +241,50 @@ def generate_route():
             'staying_time': spot.staying_time,
             'recommendation': spot.recommendation,
             'spot_type': spot.spot_type,
-            'status' : 0
+            'status': 0
         })
+    
     try:
+        # 経路生成関数を呼び出す
         func_gen = GENERATE_ROUTE_WRAPPER(data, spot_list)
-    except:
+    except Exception as e:
+        logging.error(f"経路生成関数の呼び出しに失敗しました: {e}")
         return jsonify({"message": "データが不正です"}), 400
+    
     route = func_gen.execute_generate_route()
     if route == False:
         return jsonify({"message": "経路が見つかりませんでした"}), 400
-    func_calc = CALCULATE_TRAVEL_TIME(route, spot_list)
-    route_info = func_calc.calculate_travel_time()
-    # スタンプラリーの保存
-    stamp = Stamp(user_id=data.get('user_id'), status=0)
-    db.session.add(stamp)
-    db.session.commit()
-    stamp_id = stamp.id
-    for spot_id in route:
-        stamp_detail = StampDetail(stamp_id=stamp_id, spot_id=spot_id)
-        db.session.add(stamp_detail)
-    db.session.commit()
+    
+    try:
+        # 移動時間を計算
+        func_calc = CALCULATE_TRAVEL_TIME(route, spot_list)
+        route_info = func_calc.calculate_travel_time()
+    except Exception as e:
+        logging.error(f"移動時間計算に失敗しました: {e}")
+        return jsonify({"message": "移動時間の計算に失敗しました"}), 500
+
+    try:
+        # スタンプラリーの保存
+        stamp = Stamp(user_id=user_id, status=0)
+        db.session.add(stamp)
+        db.session.commit()
+        stamp_id = stamp.id
+        
+        # スタンプラリー詳細の保存
+        for spot_id in route:
+            stamp_detail = StampDetail(stamp_id=stamp_id, spot_id=spot_id)
+            db.session.add(stamp_detail)
+        db.session.commit()
+    except Exception as e:
+        logging.error(f"スタンプラリーの保存に失敗しました: {e}")
+        return jsonify({"message": "スタンプラリーの保存に失敗しました"}), 500
+    
     route_info['stamp_id'] = stamp_id
     return jsonify(route_info), 200
+
+
+
+
 
 # dummyデータをデータベースに登録する
 @api.route('/dummy_insert', methods=['GET'])
